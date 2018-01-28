@@ -1,0 +1,6 @@
+/dist
+/logs
+/.idea
+/node_modules
+/dump
+/data/config.js

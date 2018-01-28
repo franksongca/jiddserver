@@ -1,0 +1,37 @@
+{
+  "name": "jtdd-server",
+  "version": "1.0.0",
+  "description": "simple server side test script for my sql and web service",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@git.pyrsoftware.ca:2222/~franks/macrotracingserver.git"
+  },
+  "keywords": [
+    "weksocket"
+  ],
+  "author": "Frank Song",
+  "license": "MIT",
+  "dependencies": {
+    "@types/core-js": "^0.9.42",
+    "@types/node": "^8.0.28",
+    "@types/winston": "^2.3.4",
+    "body-parser": "~1.0.1",
+    "cors": "^2.8.4",
+    "express": "~4.0.0",
+    "fs": "0.0.1-security",
+    "mysql": "^2.15.0",
+    "require": "^2.4.20",
+    "winston": "^2.3.1",
+    "winston-daily-rotate-file": "^1.4.6",
+    "ws": "^3.2.0"
+  },
+  "devDependencies": {
+    "express": "^4.16.2",
+    "typescript": "^2.6.2"
+  }
+}
