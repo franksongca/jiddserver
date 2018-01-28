@@ -1,3 +1,8 @@
+export const COMMON_SETTINGS = {
+    Environment: 'remote',   // 'local' or 'remote'
+    CLEAN_TABLES_WHEN_INIT: false   // set this to true will drop all tables!
+}
+
 export const PORT_SETTINGS = {
     httpPort: 3000,
     wsPort: 3001,
@@ -6,10 +11,6 @@ export const PORT_SETTINGS = {
 };
 
 export const DATABASE_SETTINGS = {
-    host: 'localhost',
-    database: 'jtdddb',
-    userName: 'root', //'webdbuser',
-    password: '19870213', // 'xSwTCatho2017!',
     tables: [
         {
             "name": "users",
