@@ -1,5 +1,5 @@
 export const COMMON_SETTINGS = {
-    Environment: 'remote',   // 'local' or 'remote'
+    Environment: 'local',   // 'local' or 'remote'
     CLEAN_TABLES_WHEN_INIT: false   // set this to true will drop all tables!
 }
 
