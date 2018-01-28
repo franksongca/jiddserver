@@ -1,0 +1,268 @@
+import { CommonLogger } from './../logger';
+import { EventEmitter } from 'events'
+import { DATABASE_SETTINGS, PORT_SETTINGS, ERROR_SETTINGS } from './../conf/config';
+
+export class DataServiceEventEmitter extends EventEmitter {}
+
+export class DataService extends CommonLogger {
+    static Ready = false;
+    initializedEmitter;
+    mysql;
+    conn;
+    logger;
+
+    constructor() {
+        super('data.service');
+
+        //this.mysql = require('mysql');
+        this.initializedEmitter = new DataServiceEventEmitter();
+
+
+        let conn = new odbc.Connection()
+            .connect('DRIVER={MySQL ODBC 5.1 Driver}; SERVER=jasmine.arvixe.com;DATABASE=jtdd;UID=jtddsong;PWD=yuSong;OPTION=3;');
+
+
+
+        // this.conn = this.mysql.createConnection({
+        //     host: DATABASE_SETTINGS.host,
+        //     port: PORT_SETTINGS.database,
+        //     user: DATABASE_SETTINGS.userName,
+        //     password: DATABASE_SETTINGS.password
+        // });
+    }
+
+    createDatabaseIfNotExisting(callback) {
+        const self = this;
+        const sql = 'CREATE DATABASE IF NOT EXISTS ' + DATABASE_SETTINGS.database;
+        this.conn.query(sql, (err, result) => {
+            if (err) {
+                throw err;
+            }
+            self.log("Database Exists/Created!");
+
+            self.conn.query('USE ' + DATABASE_SETTINGS.database);
+            callback();
+        });
+    }
+
+    init(dropAll?) {
+        let self = this;
+        this.conn.connect(function (err) {
+            if (err) {
+                throw err;
+            }
+            self.log("Connected!");
+
+            if (dropAll) {
+                DATABASE_SETTINGS.tables.forEach((table) => {
+                    self.query('DROP TABLE IF EXISTS ' + DATABASE_SETTINGS.database + '.' + table.name, null);
+                });
+            }
+
+
+            self.createDatabaseIfNotExisting(() => {
+                self.log('Database created / existing!!!');
+                self.createTables();
+            });
+        });
+
+        return this.initializedEmitter;
+    }
+
+    createTable(sql, callback) {
+        let self = this;
+        this.conn.query(sql, function (err, result) {
+            if (err) {
+                throw err;
+            }
+            self.log("Table created");
+
+            callback();
+        });
+    }
+
+    createTables() {
+        let counts = 0;
+        const self = this;
+
+        DATABASE_SETTINGS.tables.forEach((table) => {
+            this.log('-----------------------------------------------');
+            let sql = 'CREATE TABLE IF NOT EXISTS ' + DATABASE_SETTINGS.database + '.' + table.name + ' (';
+            table.fields.forEach((field, index) => {
+                sql += field.name + ' ' + field.definition + (index !== table.fields.length - 1 ? ',' : '');
+            });
+            sql += ')';
+
+            self.log(sql);
+            self.conn.query(sql, (err) => {
+                if (err) {
+                    throw err;
+                }
+                self.createTable(sql, () => {
+                    counts++;
+                    if (counts === DATABASE_SETTINGS.tables.length) {
+                        self.log('All tables created!');
+                        DataService.Ready = true;
+                        self.initializedEmitter.emit('onDatabaseReady');
+                    }
+                });
+            })
+        });
+    }
+
+    addResourceText(data, callback) {
+        const self = this;
+
+        this.userExists(data.userId, (result) => {
+            if (result) {
+                // not exits or error
+                callback(result);
+            } else {
+                self.getResourceTextByKey(data.key, (result) => {
+                    if (result.length) {
+                        callback(ERROR_SETTINGS.KEY_EXISTS);
+                        return;
+                    }
+
+                    let content = data.content.replace(/\'/g, '\\\'');
+                    content = data.content.replace(/"/g, '\\"');
+
+                    const sql = 'INSERT INTO ' + DATABASE_SETTINGS.database + '.resourcestext (resourceType, resourceKey, content, createdBy, lastEditor, timestamp) VALUES("' +
+                        data.type + '", "' + data.key + '", "' + content + '", ' + data.userId + ', ' + data.userId + ', ' + Date.now() + ')';
+
+                    this.query(sql, (result) => {
+                        callback(ERROR_SETTINGS.NO_ERROR);
+                    });
+                });
+            }
+        });
+    }
+
+    updateResourceText(data, callback) {
+        const self = this;
+
+        this.userExists(data.userId, (result) => {
+            if (result) {
+                // not exits or error
+                callback(result);
+            } else {
+                self.getResourceTextByKey(data.key, (result) => {
+                    if (!result.length) {
+                        self.addResourceText(data, callback);
+                        return;
+                    }
+
+                    let content = data.content.replace(/\'/g, '\\\'');
+                    content = data.content.replace(/"/g, '\\"');
+
+                    const sql = 'UPDATE ' + DATABASE_SETTINGS.database + '.resourcestext SET resourceType = "' + data.type + '", content = "' +
+                        content + '", lastEditor = ' + data.userId + ', timestamp = ' + Date.now() + ' WHERE resourceKey = "' + data.key + '"';
+
+                    this.query(sql, (result) => {
+                        callback(ERROR_SETTINGS.NO_ERROR);
+                    });
+                });
+            }
+        });
+    }
+
+    removeResourceText(data, callback) {
+        const self = this;
+
+        this.userExists(data.userId, (result) => {
+            if (result) {
+                // not exits or error
+                callback(result);
+            } else {
+
+                self.getResourceTextByKey(data.key, (result) => {
+                    if (!result.length) {
+                        callback(ERROR_SETTINGS.NO_SUCH_KEY);
+                        return;
+                    }
+
+                    const sql = 'DELETE FROM ' + DATABASE_SETTINGS.database + '.resourcestext WHERE resourceKey = "' + data.key + '"';
+
+                    this.query(sql, (result) => {
+                        callback(ERROR_SETTINGS.NO_ERROR);
+                    });
+                });
+            }
+        });
+    }
+
+    changeResourceTextKey(data, callback) {
+        const self = this;
+
+        this.userExists(data.userId, (result) => {
+            if (result) {
+                // not exits or error
+                callback(result);
+            } else {
+
+                self.getResourceTextByKey(data.key, (result) => {
+                    if (!result.length) {
+                        callback(ERROR_SETTINGS.NO_SUCH_KEY);
+                        return;
+                    }
+
+                    let sql = 'SELECT * FROM ' + DATABASE_SETTINGS.database + '.resourcestext WHERE resourceKey = "' + data.newKey + '"';
+                    this.query(sql, (result) => {
+                        if (result.length) {
+                            // the new key already exists
+                            callback(ERROR_SETTINGS.KEY_EXISTS);
+                        } else {
+                            sql = 'UPDATE ' + DATABASE_SETTINGS.database + '.resourcestext SET resourceKey ="' + data.newKey + '" WHERE resourceKey = "' + data.key + '"';
+                            this.query(sql, (result) => {
+                                callback(ERROR_SETTINGS.NO_ERROR);
+                            });
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    userExists(userId, callback) {
+        if (!DataService.Ready) {
+            callback(ERROR_SETTINGS.NOT_READY);
+        } else {
+            this.getUserById(userId, (result) => {
+                if (!result.length) {
+                    callback(ERROR_SETTINGS.NO_SUCH_USER);
+                } else {
+                    callback();
+                }
+            });
+        }
+    }
+
+    query(sql, callback?) {
+        this.conn.query(sql, (err, result) => {
+            if (err) {
+                throw err;
+            }
+
+            if (callback) {
+                callback(result || []);
+            }
+        });
+    }
+
+    getResourceTextByKey(key, callback) {
+        const sql = 'SELECT * FROM ' + DATABASE_SETTINGS.database + '.resourcestext WHERE resourceKey="' + key + '"';
+        this.query(sql, callback);
+    }
+
+    getResourceTextById(id, callback) {
+        const sql = 'SELECT * FROM ' + DATABASE_SETTINGS.database + '.resourcestext WHERE id=' + id;
+        this.query(sql, callback);
+    }
+
+    getUserById(id, callback) {
+        let sql = 'SELECT id FROM ' + DATABASE_SETTINGS.database + '.users WHERE id=' + id;
+        this.query(sql, callback);
+    }
+};
+
+
