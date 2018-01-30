@@ -148,7 +148,7 @@ export class DataService extends CommonLogger {
     }
 
     protected _getUserInfo(cred, callback) {
-        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users WHERE name = "' + cred.username + '" AND password = "' + cred.password + '"';
+        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users WHERE name = "' + cred.userName + '" AND password = "' + cred.password + '"';
 
         this.query(sql, (result) => {
             if (result.length) {
@@ -164,7 +164,7 @@ export class DataService extends CommonLogger {
             plain_auth = buf.toString(),
             creds = plain_auth.split(':');
         return {
-            username: creds[0],
+            userName: creds[0],
             password: creds[1]
         };
     }
@@ -191,8 +191,9 @@ export class DataService extends CommonLogger {
     getUserBasicInfo(cred, callback) {
         const self = this;
         this._getUserInfo(cred, (result) => {
+            self.log('getUserBasicInfo ...' + result);
             if (result) {
-                callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {id: result.id, level: result.level, token: new Buffer((cred.username + ':' + cred.password)).toString('base64')}));
+                callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {id: result.id, level: result.level, token: new Buffer((cred.userName + ':' + cred.password)).toString('base64')}));
             } else {
                 self.log('getUserBasicInfo ...');
                 callback(ERROR_SETTINGS.INVALID_USER);
@@ -379,7 +380,7 @@ export class DataService extends CommonLogger {
         this.query(sql, (users) => {
             let found = false;
             users.forEach((user) => {
-                if (token === new Buffer((user.username + ':' + user.password)).toString('base64')) {
+                if (token === new Buffer((user.userName + ':' + user.password)).toString('base64')) {
                     found = true;
                     callback(user);
                 }
