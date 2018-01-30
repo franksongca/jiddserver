@@ -189,6 +189,7 @@ export class DataService extends CommonLogger {
     }
 
     getUserBasicInfo(cred, callback) {
+        const self = this;
         this._getUserInfo(cred, (result) => {
             if (result) {
                 callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {id: result.id, level: result.level, token: new Buffer((cred.username + ':' + cred.password)).toString('base64')}));
