@@ -1,8 +1,3 @@
-export const COMMON_SETTINGS = {
-    Environment: 'remote',   // 'local' or 'remote'
-    CLEAN_TABLES_WHEN_INIT: true   // set this to true will drop all tables!
-}
-
 export const PORT_SETTINGS = {
     httpPort: 3000,
     wsPort: 3001,

@@ -176,11 +176,13 @@ export class DataService extends CommonLogger {
     }
 
     authUser(auth, callback) {
+        const self = this;
         const tmp = auth.split(' ');   // Split on a space, the original auth looks like  "Basic Y2hhcmxlczoxMjM0NQ==" and we need the 2nd part
         this._getUserInfoByToken(tmp[1], (result) => {
             if (result) {
                 callback(ERROR_SETTINGS.NO_ERROR);
             } else {
+                self.log('authUser ...');
                 callback(ERROR_SETTINGS.INVALID_USER);
             }
         });
@@ -191,6 +193,7 @@ export class DataService extends CommonLogger {
             if (result) {
                 callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {id: result.id, level: result.level, token: new Buffer((cred.username + ':' + cred.password)).toString('base64')}));
             } else {
+                self.log('getUserBasicInfo ...');
                 callback(ERROR_SETTINGS.INVALID_USER);
             }
         });
