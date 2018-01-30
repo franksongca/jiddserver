@@ -1,6 +1,6 @@
 export const COMMON_SETTINGS = {
-    Environment: 'local',   // 'local' or 'remote'
-    CLEAN_TABLES_WHEN_INIT: false   // set this to true will drop all tables!
+    Environment: 'remote',   // 'local' or 'remote'
+    CLEAN_TABLES_WHEN_INIT: true   // set this to true will drop all tables!
 }
 
 export const PORT_SETTINGS = {

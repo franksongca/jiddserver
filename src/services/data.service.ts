@@ -1,6 +1,6 @@
 import { CommonLogger } from './../logger';
 import { EventEmitter } from 'events';
-import { DATABASE_SETTINGS, PORT_SETTINGS, ERROR_SETTINGS, COMMON_SETTINGS, USER_LEVEL, CommonService } from './../conf/config';
+import { DATABASE_SETTINGS, PORT_SETTINGS, ERROR_SETTINGS, USER_LEVEL, CommonService } from './../conf/config';
 import { ExtraSettings } from './../data/config.js';
 
 export class DataServiceEventEmitter extends EventEmitter {}
@@ -26,7 +26,7 @@ export class DataService extends CommonLogger {
         DataService.InitializedEmitter = new DataServiceEventEmitter();
 
         this.conn = this.mysql.createConnection({
-            host: COMMON_SETTINGS.Environment === 'local' ? ExtraSettings.localHost : ExtraSettings.remoteHost,
+            host: ExtraSettings.environment === 'local' ? ExtraSettings.localHost : ExtraSettings.remoteHost,
             port: PORT_SETTINGS.database,
             user: ExtraSettings.userName,
             password: ExtraSettings.password
@@ -43,7 +43,7 @@ export class DataService extends CommonLogger {
             }
             self.log("Connected!");
 
-            if (COMMON_SETTINGS.CLEAN_TABLES_WHEN_INIT) {
+            if (ExtraSettings.cleanTablesWhenInit) {
                 DATABASE_SETTINGS.tables.forEach((table) => {
                     self.query('DROP TABLE IF EXISTS ' + ExtraSettings.database + '.' + table.name, null);
                 });
