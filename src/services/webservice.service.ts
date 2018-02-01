@@ -3,6 +3,7 @@ import { PORT_SETTINGS, USER_LEVEL } from './../conf/config';
 import { DataService } from './../services/data.service';
 
 export class WebService extends CommonLogger {
+
     constructor() {
         super('web.service');
 
@@ -45,18 +46,22 @@ export class WebService extends CommonLogger {
         //         res.json({msg: 'good'});
         //         // res.json(createProcess(req.params.id.replace(':', ''), req.params.type.replace(':', ''), req.params.version.replace(':', '')));
         //     });
-
         // this.router.route('/shutdown/:id')
         //     .get(function(req, res) {
         //         // console.log('http post - start : ' + Object.keys(req));
         //
         //         // res.json(shutdown(req.params.id.replace(':', '')));
         //     });
-
         router.route('/update').post(function(req, res) {
             // this parsing method is for the raw json (application/json) when sending
             // should contain valid token in the payload
-            let result = req.body;
+            switch (req.body.action) {
+                case 'resource-text':
+                    dataService.addResourceText(req.body, (result) => {
+                        res.json(result);
+                    });
+                    break;
+            }
 
             // res.json(createProcess(req.params.id.replace(':', ''), req.params.type.replace(':', ''), req.params.version.replace(':', '')));
         });
@@ -76,6 +81,41 @@ export class WebService extends CommonLogger {
         });
 
 
+
+
+
+
+
+
+
+
+
+        // get resource text, key = all, get all
+        router.route('/getresourcetext/:token/:key')
+            .get(function(req, res) {
+                const key = req.params.key,
+                    token = req.params.token;
+
+                console.log('http get - start getresourcetext : key = ' + key + ', token = ' + token);
+                // res.json(shutdown(req.params.id.replace(':', '')));
+            });
+
+        // get resource text for a lang, key = all, get all
+        router.route('/getresourcetext/:token/:key/:lang')
+            .get(function(req, res) {
+                const key = req.params.key,
+                    token = req.params.token,
+                    lang = req.params.lang;
+
+
+                console.log('http get - start getresourcetext : key = ' + key + ', token = ' + token + ', lang = ' + lang);
+
+                // res.json(shutdown(req.params.id.replace(':', '')));
+            });
+
+
+
+
         app.listen(PORT_SETTINGS.webservice, '0.0.0.0');
     }
 
@@ -83,3 +123,6 @@ export class WebService extends CommonLogger {
         // USER_LEVEL
     }
 }
+
+
+

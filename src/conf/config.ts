@@ -12,8 +12,10 @@ export const DATABASE_SETTINGS = {
             "fields": [
                 {"name": "id", "definition": "INT NOT NULL AUTO_INCREMENT PRIMARY KEY"},
                 {"name": "level", "definition": "INT"},
+                {"name": "age", "definition": "INT"},
+                {"name": "sex", "definition": "VARCHAR(1)"},
                 {"name": "type", "definition": "INT"},
-                {"name": "name", "definition": "VARCHAR(40)"},
+                {"name": "userName", "definition": "VARCHAR(40)"},
                 {"name": "firstName", "definition": "VARCHAR(40)"},
                 {"name": "lastName", "definition": "VARCHAR(40)"},
                 {"name": "password", "definition": "VARCHAR(40)"},
@@ -21,7 +23,8 @@ export const DATABASE_SETTINGS = {
                 {"name": "phone", "definition": "VARCHAR(20)"},
                 {"name": "phone1", "definition": "VARCHAR(20)"},
                 {"name": "email", "definition": "VARCHAR(254)"},
-                {"name": "address", "definition": "VARCHAR(254)"}
+                {"name": "address", "definition": "VARCHAR(254)"},
+                {"name": "comments", "definition": "VARCHAR(254)"},
             ]
         },
         {
@@ -59,8 +62,10 @@ export const DATABASE_SETTINGS = {
                 {"name": "resourceKey", "definition": "VARCHAR(50)"},
                 {"name": "content", "definition": "TEXT"},
                 {"name": "createdBy", "definition": "INT"},
-                {"name": "lastEditor", "definition": "INT"},
-                {"name": "timestamp", "definition": "BIGINT"}
+                {"name": "createdOn", "definition": "BIGINT"},
+                {"name": "lastEditedBy", "definition": "INT"},
+                {"name": "lastEditedOn", "definition": "BIGINT"},
+                {"name": "comments", "definition": "VARCHAR(254)"}
             ]
         },
         {
@@ -109,13 +114,14 @@ export const ERROR_SETTINGS = {
     NOT_READY: {error: 1, msg: 'Database is not ready.'},
     NO_SUCH_USER: {error: 2, msg: 'No such user in the database.'},
     KEY_EXISTS: {error: 3, msg: 'ResourceKey already exists.'},
-    NO_SUCH_KEY: {error: 4, msg: 'Cannot find the ResourceKey + Language.'},
+    NO_SUCH_KEY: {error: 4, msg: 'Cannot find the ResourceKey.'},
     INVALID_USER: {error: 5, msg: 'User is invalid.'},
     LOGIN_FAILED: {error: 6, msg: 'Login refused.'},
     REGISTER_REFUSED: {error: 7, msg: 'You don\'t have the right to register new staff.'},
     REGISTER_FAILED: {error: 8, msg: 'Failed in adding new user.'},
     INVALID_TOKEN: {error: 9, msg: 'Token is invalid.'},
     USER_NAME_EXISTS: {error: 10, msg: 'User is already taken.'},
+    NO_SUCH_RESOURCE_ID: {error: 11, msg: 'Cannot find the Resource with the gaven id.'},
 }
 
 export class CommonService {
@@ -131,3 +137,4 @@ export class CommonService {
         return LANGUAGES.indexOf(lang) !== -1;
     }
 }
+

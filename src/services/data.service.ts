@@ -1,7 +1,7 @@
-import { CommonLogger } from './../logger';
-import { EventEmitter } from 'events';
-import { DATABASE_SETTINGS, PORT_SETTINGS, ERROR_SETTINGS, USER_LEVEL, CommonService } from './../conf/config';
-import { ExtraSettings } from './../data/config.js';
+import {CommonLogger} from './../logger';
+import {EventEmitter} from 'events';
+import {DATABASE_SETTINGS, PORT_SETTINGS, ERROR_SETTINGS, USER_LEVEL, CommonService} from './../conf/config';
+import {ExtraSettings} from './../data/config.js';
 
 export class DataServiceEventEmitter extends EventEmitter {}
 
@@ -45,7 +45,7 @@ export class DataService extends CommonLogger {
 
             if (ExtraSettings.cleanTablesWhenInit) {
                 DATABASE_SETTINGS.tables.forEach((table) => {
-                    self.query('DROP TABLE IF EXISTS ' + ExtraSettings.database + '.' + table.name, null);
+                    self._query('DROP TABLE IF EXISTS ' + ExtraSettings.database + '.' + table.name, null);
                 });
             }
 
@@ -56,16 +56,56 @@ export class DataService extends CommonLogger {
         });
     }
 
-    protected _addNewStaff(cred, callback) {
-        const sql = 'INSERT INTO ' + ExtraSettings.database + '.users (level, type, name, firstName, lastName, password, dharmaName, phone, phone1, email, address) VALUES ('+
-            cred.level + ', "' + cred.type + '", "' + cred.userName + '", "' + cred.firstName + '", "' + cred.lastName + '", "' +
-            cred.password + '", "' + cred.dharmaName + '", "' + cred.phone + '", "' + cred.phone1 + '", "' + cred.email + '", "' + cred.address + '")';
+    protected _query(sql, callback?) {
+        this.conn.query(sql, (err, result) => {
+            if (err) {
+                this.log('ERROR SQL: ' + sql);
 
-        this._userNameExists(cred.name,(isUserExisting) => {
+                throw err;
+            }
+
+            if (callback) {
+                callback(result || []);
+            }
+        });
+    }
+
+    protected _verifyToken(token, callback) {
+        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users';
+        this._query(sql, (users) => {
+            let found = false;
+            users.forEach((user) => {
+                if (token === new Buffer((user.userName + ':' + user.password)).toString('base64')) {
+                    found = true;
+                    callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {userInfo: user}));
+                }
+            });
+
+            if (!found) {
+                callback(ERROR_SETTINGS.INVALID_TOKEN);
+            }
+        });
+    }
+
+    /**
+     * @method _addMember
+     * @param cred      {object} - user info
+     * @param callback  {function}
+     * @private
+     */
+    protected _addMember(cred, callback) {
+        const self = this;
+        const sql = 'INSERT INTO ' + ExtraSettings.database +
+            '.users (level, type, userName, age, sex, firstName, lastName, password, dharmaName, phone, phone1, email, address, comments) VALUES (' +
+            cred.level + ', "' + cred.type + '", "' + cred.userName + '", ' + cred.age + ', "' + cred.sex + '", "' + cred.firstName + '", "' +
+            cred.lastName + '", "' + cred.password + '", "' + cred.dharmaName + '", "' + cred.phone + '", "' + cred.phone1 + '", "' + cred.email + '", "' +
+            cred.address + '", "' + cred.comments + '")';
+
+        this._userNameExists(cred.userName, (isUserExisting) => {
             if (isUserExisting) {
                 callback(ERROR_SETTINGS.USER_NAME_EXISTS);
             } else {
-                this.query(sql, (result) => {
+                self._query(sql, (result) => {
                     if (result && result.affectedRows === 1) {
                         callback(ERROR_SETTINGS.NO_ERROR);
                     } else {
@@ -76,6 +116,11 @@ export class DataService extends CommonLogger {
         });
     }
 
+    /**
+     * @method _createDatabaseIfNotExisting
+     * @param callback
+     * @private
+     */
     protected _createDatabaseIfNotExisting(callback) {
         const self = this;
         const sql = 'CREATE DATABASE IF NOT EXISTS ' + ExtraSettings.database;
@@ -90,6 +135,12 @@ export class DataService extends CommonLogger {
         });
     }
 
+    /**
+     * @method _createTable
+     * @param sql {string}
+     * @param callback {function}
+     * @private
+     */
     protected _createTable(sql, callback) {
         let self = this;
         this.conn.query(sql, function (err, result) {
@@ -102,6 +153,10 @@ export class DataService extends CommonLogger {
         });
     }
 
+    /**
+     * @method _createTables
+     * @private
+     */
     protected _createTables() {
         let tableCounts = 0;
         const self = this;
@@ -120,11 +175,11 @@ export class DataService extends CommonLogger {
                     throw err;
                 }
                 self._createTable(sql, () => {
-                    tableCounts ++;
+                    tableCounts++;
                     if (tableCounts === DATABASE_SETTINGS.tables.length) {
                         self.log('All tables created!');
 
-                        self._addNewStaff(ExtraSettings.superAdmin , (result) => {
+                        self._addMember(ExtraSettings.superAdmin, (result) => {
                             if (result.error === 0) {
                                 self.log('Super admin created!');
                                 DataService.Ready = true;
@@ -139,18 +194,29 @@ export class DataService extends CommonLogger {
         });
     }
 
-
+    /**
+     * @method _userNameExists
+     * @param userName {string}
+     * @param callback {function}
+     * @private
+     */
     protected _userNameExists(userName, callback) {
-        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users WHERE name = "' + userName + '"';
-        this.query(sql, (result) => {
+        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users WHERE userName = "' + userName + '"';
+        this._query(sql, (result) => {
             callback(!!result.length);
         });
     }
 
+    /**
+     * @method _getUserInfo
+     * @param cred {object}
+     * @param callback {function}
+     * @private
+     */
     protected _getUserInfo(cred, callback) {
-        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users WHERE name = "' + cred.userName + '" AND password = "' + cred.password + '"';
+        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.users WHERE userName = "' + cred.userName + '" AND password = "' + cred.password + '"';
 
-        this.query(sql, (result) => {
+        this._query(sql, (result) => {
             if (result.length) {
                 callback(result[0]);
             } else {
@@ -159,6 +225,12 @@ export class DataService extends CommonLogger {
         });
     }
 
+    /**
+     * @method _parseToken
+     * @param token
+     * @returns {{userName: string; password: string}}
+     * @private
+     */
     protected _parseToken(token) {
         const buf = new Buffer(token, 'base64'),
             plain_auth = buf.toString(),
@@ -169,31 +241,61 @@ export class DataService extends CommonLogger {
         };
     }
 
+    /**
+     * @method _getUserInfoByToken
+     * @param token {string}
+     * @param callback {function}
+     * @private
+     */
     protected _getUserInfoByToken(token, callback) {
         const cred = this._parseToken(token);
 
         this._getUserInfo(cred, callback);
     }
 
-    authUser(auth, callback) {
-        const self = this;
-        const tmp = auth.split(' ');   // Split on a space, the original auth looks like  "Basic Y2hhcmxlczoxMjM0NQ==" and we need the 2nd part
-        this._getUserInfoByToken(tmp[1], (result) => {
-            if (result) {
-                callback(ERROR_SETTINGS.NO_ERROR);
-            } else {
-                self.log('authUser ...');
-                callback(ERROR_SETTINGS.INVALID_USER);
-            }
-        });
+    protected _getResourceTextByKeyAndLang(key, lang, callback) {
+        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext WHERE resourceKey="' + key + '" AND language ="' + lang + '"';
+        this._query(sql, callback);
     }
 
+
+    /**
+     * @method authUser
+     * @param auth {string}
+     * @param callback {function}
+     */
+    authUser(auth, callback) {
+        if (!auth || auth.indexOf('Basic') !== 0) {
+            callback(ERROR_SETTINGS.INVALID_USER);
+        } else {
+            const self = this;
+            const tmp = auth.split(' ');   // Split on a space, the original auth looks like  "Basic Y2hhcmxlczoxMjM0NQ==" and we need the 2nd part
+            this._getUserInfoByToken(tmp[1], (result) => {
+                if (result) {
+                    callback(ERROR_SETTINGS.NO_ERROR);
+                } else {
+                    self.log('authUser ...');
+                    callback(ERROR_SETTINGS.INVALID_USER);
+                }
+            });
+        }
+    }
+
+    /**
+     * @method getUserBasicInfo
+     * @param cred {string}
+     * @param callback {function}
+     */
     getUserBasicInfo(cred, callback) {
         const self = this;
         this._getUserInfo(cred, (result) => {
             self.log('getUserBasicInfo ...' + result);
             if (result) {
-                callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {id: result.id, level: result.level, token: new Buffer((cred.userName + ':' + cred.password)).toString('base64')}));
+                const token = new Buffer((cred.userName + ':' + cred.password)).toString('base64');
+                const info = CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {userInfo: result});
+                info.token = token;
+                info.userInfo.password = '';
+                callback(info);
             } else {
                 self.log('getUserBasicInfo ...');
                 callback(ERROR_SETTINGS.INVALID_USER);
@@ -201,56 +303,55 @@ export class DataService extends CommonLogger {
         });
     }
 
+
+    /**
+     * @method registerUser
+     * @param cred {string}
+     * @param callback {function}
+     */
     registerUser(cred, callback) {
         this._getUserInfoByToken(cred.token, (info) => {
             if (info && info.level === USER_LEVEL.SYS_ADMIN) {
-                this._addNewStaff(cred, callback);
+                this._addMember(cred, callback);
             } else {
                 callback(ERROR_SETTINGS.REGISTER_REFUSED);
             }
         })
     }
 
-    userExists(userId, callback) {
-        if (!DataService.Ready) {
-            callback(ERROR_SETTINGS.NOT_READY);
-        } else {
-            this.getUserById(userId, (result) => {
-                if (!result.length) {
-                    callback(ERROR_SETTINGS.NO_SUCH_USER);
-                } else {
-                    callback();
-                }
-            });
-        }
-    }
-
-
-
+    /**
+     * @method addResourceText
+     * @param data {object}
+     * @param callback {function}
+     */
     addResourceText(data, callback) {
         const self = this;
 
-        this.userExists(data.userId, (result) => {
-            if (result) {
+        this._verifyToken(data.token, (result) => {
+            if (result.error) {
                 // not exits or error
                 callback(result);
             } else {
-                self.getResourceTextByKeyAndLang(data.key, data.lang, (result) => {
+                const userId = result.userInfo.id;
+                self._getResourceTextByKeyAndLang(data.resourceKey, data.language, (result) => {
                     if (result.length) {
                         callback(ERROR_SETTINGS.KEY_EXISTS);
                         return;
                     }
 
-                    // if (CommonService.IsValidLang())
-
-
+                    // excape ' and " in content and comments, in other files, should not exist ' and "
                     let content = data.content.replace(/\'/g, '\\\'');
                     content = data.content.replace(/"/g, '\\"');
+                    let comments = data.comments.replace(/\'/g, '\\\'');
+                    comments = data.comments.replace(/"/g, '\\"');
 
-                    const sql = 'INSERT INTO ' + ExtraSettings.database + '.resourcestext (resourceType, resourceKey, content, createdBy, lastEditor, timestamp) VALUES("' +
-                        data.type + '", "' + data.key + '", "' + content + '", ' + data.userId + ', ' + data.userId + ', ' + Date.now() + ')';
+                    const sql = 'INSERT INTO ' + ExtraSettings.database + '.resourcestext ' +
+                        '(resourceType, resourceKey, language, content, createdBy, createdOn, lastEditedBy, lastEditedOn, comments) VALUES("' +
+                        data.resourceType + '", "' + data.resourceKey + '", "' + data.language + '", "' + content + '", ' + userId + ', ' +
+                        Date.now() + ', ' + userId + ', ' + Date.now() + ', "' + comments + '")';
 
-                    this.query(sql, (result) => {
+                    // TODO: handle possible errors!!! _query return [] or ???
+                    this._query(sql, (result) => {
                         callback(ERROR_SETTINGS.NO_ERROR);
                     });
                 });
@@ -258,54 +359,21 @@ export class DataService extends CommonLogger {
         });
     }
 
-    updateResourceText(data, callback) {
+    /**
+     *
+     */
+    removeResourceTextByKey(data, callback) {
         const self = this;
 
-        this.userExists(data.userId, (result) => {
-            if (result) {
+        this._verifyToken(cred.token, (result) => {
+            if (result.error) {
                 // not exits or error
                 callback(result);
             } else {
-                self.getResourceTextByKeyAndLang(data.key, data.lang, (result) => {
-                    if (!result.length) {
-                        self.addResourceText(data, callback);
-                        return;
-                    }
+                const sql = 'DELETE FROM ' + ExtraSettings.database + '.resourcestext WHERE resourceKey = "' + data.resourceKey + '"';
 
-                    let content = data.content.replace(/\'/g, '\\\'');
-                    content = data.content.replace(/"/g, '\\"');
-
-                    const sql = 'UPDATE ' + ExtraSettings.database + '.resourcestext SET resourceType = "' + data.type + '", content = "' +
-                        content + '", lastEditor = ' + data.userId + ', timestamp = ' + Date.now() + ' WHERE resourceKey = "' + data.key + '"';
-
-                    this.query(sql, (result) => {
-                        callback(ERROR_SETTINGS.NO_ERROR);
-                    });
-                });
-            }
-        });
-    }
-
-    removeResourceText(data, callback) {
-        const self = this;
-
-        this.userExists(data.userId, (result) => {
-            if (result) {
-                // not exits or error
-                callback(result);
-            } else {
-
-                self.getResourceTextByKeyAndLang(data.key, data.lang,(result) => {
-                    if (!result.length) {
-                        callback(ERROR_SETTINGS.NO_SUCH_KEY);
-                        return;
-                    }
-
-                    const sql = 'DELETE FROM ' + ExtraSettings.database + '.resourcestext WHERE resourceKey = "' + data.key + '"';
-
-                    this.query(sql, (result) => {
-                        callback(ERROR_SETTINGS.NO_ERROR);
-                    });
+                self._query(sql, (result) => {
+                    callback(ERROR_SETTINGS.NO_ERROR);
                 });
             }
         });
@@ -314,83 +382,73 @@ export class DataService extends CommonLogger {
     changeResourceTextKey(data, callback) {
         const self = this;
 
-        this.userExists(data.userId, (result) => {
-            if (result) {
+        this._verifyToken(cred.token, (result) => {
+            if (result.error) {
                 // not exits or error
                 callback(result);
             } else {
-
-                self.getResourceTextByKeyAndLang(data.key, data.lang, (result) => {
-                    if (!result.length) {
-                        callback(ERROR_SETTINGS.NO_SUCH_KEY);
-                        return;
+                self.getResourceTextByKey(data, (result) => {
+                    if (result.error) {
+                        // not found the record by the key, ok to go ahead. Should validate key in the front-end, only alpha, number, _ allowed
+                        const sql = 'UPDATE ' + ExtraSettings.database + '.resourcestext SET resourceKey ="' + data.newKey + '" WHERE resourceKey = "' + data.resourceKey + '"';
+                        self._query(sql, (result) => {
+                            callback(ERROR_SETTINGS.NO_ERROR);
+                        });
+                    } else {
+                        callback(ERROR_SETTINGS.KEY_EXISTS);
                     }
-
-                    let sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext WHERE resourceKey = "' + data.newKey + '"';
-                    this.query(sql, (result) => {
-                        if (result.length) {
-                            // the new key already exists
-                            callback(ERROR_SETTINGS.KEY_EXISTS);
-                        } else {
-                            sql = 'UPDATE ' + ExtraSettings.database + '.resourcestext SET resourceKey ="' + data.newKey + '" WHERE resourceKey = "' + data.key + '"';
-                            this.query(sql, (result) => {
-                                callback(ERROR_SETTINGS.NO_ERROR);
-                            });
-                        }
-                    });
                 });
             }
         });
     }
 
-    getAllResourceText(callback) {
-        let sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext';
-        this.query(sql, callback);
-    }
+// for the same key, there should be two records for ZH and EN
+    getResourceTextByKey(data, callback) {
+        const self = this;
 
-    query(sql, callback?) {
-        this.conn.query(sql, (err, result) => {
-            if (err) {
-                throw err;
-            }
-
-            if (callback) {
-                callback(result || []);
+        this._verifyToken(cred.token, (result) => {
+            if (result.error) {
+                // not exits or error
+                callback(result);
+            } else {
+                let sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext WHERE resourceKey = "' + data.resourceKey + '"';
+                self._query(sql, (result) => {
+                    if (result.length) {
+                        // found the records, return them.
+                        callback(CommonService.ExtendObject(CommonService.CloneObject(ERROR_SETTINGS.NO_ERROR), {result: result}));
+                    } else {
+                        callback(ERROR_SETTINGS.NO_SUCH_KEY);
+                    }
+                });
             }
         });
     }
 
-    getResourceTextByKeyAndLang(key, lang, callback) {
-        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext WHERE resourceKey="' + key + '" AND language ="' + lang + '"';
-        this.query(sql, callback);
+    getAllResourceText(cred, callback) {
+        const self = this;
+
+        this._verifyToken(cred.token, (result) => {
+            if (result.error) {
+                // not exits or error
+                callback(result);
+            } else {
+                let sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext';
+                self._query(sql, callback);
+            }
+        });
     }
 
-    getResourceTextById(id, callback) {
-        const sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext WHERE id=' + id;
-        this.query(sql, callback);
-    }
+    getAllResourceTextLang(cred, lang, callback) {
+        const self = this;
 
-    getUserById(id, callback) {
-        let sql = 'SELECT id FROM ' + ExtraSettings.database + '.users WHERE id=' + id;
-        this.query(sql, callback);
-    }
-
-    verifyToken(token, callback) {
-        const sql = 'SELECT * FROM '+ ExtraSettings.database + '.users';
-        this.query(sql, (users) => {
-            let found = false;
-            users.forEach((user) => {
-                if (token === new Buffer((user.userName + ':' + user.password)).toString('base64')) {
-                    found = true;
-                    callback(user);
-                }
-            });
-
-            if (!found) {
-                callback(ERROR_SETTINGS.INVALID_TOKEN);
+        this._verifyToken(cred.token, (result) => {
+            if (result.error) {
+                // not exits or error
+                callback(result);
+            } else {
+                let sql = 'SELECT * FROM ' + ExtraSettings.database + '.resourcestext WHERE language ="' + lang + '"';
+                self._query(sql, callback);
             }
         });
     }
 };
-
-
